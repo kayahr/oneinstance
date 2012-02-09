@@ -30,7 +30,7 @@ public class OneInstanceTest
     @After
     public void cleanUp()
     {
-        OneInstance.getInstance().unregisterInstance(OneInstanceTest.class);
+        OneInstance.getInstance().unregister(OneInstanceTest.class);
     }
     
     /**
@@ -42,7 +42,7 @@ public class OneInstanceTest
         OneInstance one = OneInstance.getInstance();
 
         // First instance must be accepted.
-        boolean firstResult = one.registerInstance(OneInstanceTest.class,
+        boolean firstResult = one.register(OneInstanceTest.class,
             new String[] { "arg1", "arg2" });
         assertTrue(firstResult);
 
@@ -52,12 +52,12 @@ public class OneInstanceTest
         assertTrue(port >= OneInstance.MIN_PORT && port <= OneInstance.MAX_PORT);
 
         // Second instance must be refused.
-        boolean secondResult = one.registerInstance(OneInstanceTest.class,
+        boolean secondResult = one.register(OneInstanceTest.class,
             new String[] { "arg1", "arg2" });
         assertFalse(secondResult);
 
         // Third instance must also be refused.
-        boolean thirdResult = one.registerInstance(OneInstanceTest.class,
+        boolean thirdResult = one.register(OneInstanceTest.class,
             new String[] { "arg3", "arg4" });
         assertFalse(thirdResult);
         
@@ -67,7 +67,7 @@ public class OneInstanceTest
         assertEquals(port, portAfter);
         
         // Unregister instance and check if port has been removed
-        one.unregisterInstance(OneInstance.class);
+        one.unregister(OneInstance.class);
         port = Preferences.userNodeForPackage(OneInstanceTest.class).
             getInt(OneInstance.PORT_KEY, -1);
         assertEquals(-1, port);
@@ -83,7 +83,7 @@ public class OneInstanceTest
         OneInstance one = OneInstance.getInstance();
 
         // First instance must be accepted.
-        boolean firstResult = one.registerInstance(OneInstanceTest.class,
+        boolean firstResult = one.register(OneInstanceTest.class,
             new String[] { "arg1", "arg2" });
         assertTrue(firstResult);
         
@@ -98,12 +98,12 @@ public class OneInstanceTest
         });
 
         // Instance without "letMeIn" argument must be refused
-        boolean secondResult = one.registerInstance(OneInstanceTest.class,
+        boolean secondResult = one.register(OneInstanceTest.class,
             new String[] { "dontLetMeIn" });
         assertFalse(secondResult);
 
         // Instance with "letMeIn" argument must be accepted
-        boolean thirdResult = one.registerInstance(OneInstanceTest.class,
+        boolean thirdResult = one.register(OneInstanceTest.class,
             new String[] { "letMeIn" });
         assertTrue(thirdResult);
     }

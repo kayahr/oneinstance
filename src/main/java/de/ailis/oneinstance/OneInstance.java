@@ -25,7 +25,7 @@ import org.apache.commons.logging.LogFactory;
 /**
  * The One-Instance manager. This is a singleton so you must use the
  * {@link OneInstance#getInstance()} method to obtain it. The application
- * must call the {@link OneInstance#registerInstance(Class, String[])} method at
+ * must call the {@link OneInstance#register(Class, String[])} method at
  * the beginning of its main method. If this method returns false
  * then the application must exit immediately.
  * 
@@ -37,7 +37,7 @@ import org.apache.commons.logging.LogFactory;
  * and with its command-line arguments.
  * 
  * When the application exits then it should call
- * {@link OneInstance#unregisterInstance(Class)} but this is not a requirement.
+ * {@link OneInstance#unregister(Class)} but this is not a requirement.
  * This method just closes the server socket (Which will be closed anyway when
  * the application exits) and it removes the port number from the preferences so
  * the next started application does not need to check if this port is still
@@ -134,7 +134,7 @@ public final class OneInstance
      *            running instance if found. Must not be null.
      * @return True if instance is allowed to start, false if not.
      */
-    public boolean registerInstance(Class<?> mainClass, final String[] args)
+    public boolean register(Class<?> mainClass, final String[] args)
     {
         if (mainClass == null)
             throw new IllegalArgumentException("mainClass must be set");
@@ -201,7 +201,7 @@ public final class OneInstance
      *            The main class of the application. Must not be null.
      *            This is used as the user node key for the preferences.
      */
-    public void unregisterInstance(Class<?> mainClass)
+    public void unregister(Class<?> mainClass)
     {
         if (mainClass == null)
             throw new IllegalArgumentException("mainClass must be set");

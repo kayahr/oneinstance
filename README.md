@@ -7,7 +7,8 @@ Description
 A Java library which can be used to prevent the launch of multiple
 instances of an application. The first instance is informed about the launch
 of a second one, can decide if the second instance is allowed to start and
-also gets the command-line arguments of the second instance.
+also gets the working directory and the command-line arguments of the second 
+instance.
 
 The communication between the application instances is done via a TCP socket
 server which is started on the loop-back interface by the first instance. The

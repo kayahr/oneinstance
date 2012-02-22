@@ -9,13 +9,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.prefs.Preferences;
 
 import org.junit.After;
 import org.junit.Test;
-
-import de.ailis.oneinstance.OneInstance;
-import de.ailis.oneinstance.OneInstanceListener;
 
 /**
  * Tests the OneInstance class.
@@ -32,7 +31,7 @@ public class OneInstanceTest
     {
         OneInstance.getInstance().unregister(OneInstanceTest.class);
     }
-    
+
     /**
      * Without a listener additional instances should be prevented.
      */
@@ -60,12 +59,12 @@ public class OneInstanceTest
         boolean thirdResult = one.register(OneInstanceTest.class,
             new String[] { "arg3", "arg4" });
         assertFalse(thirdResult);
-        
+
         // Check if port is still the same
         int portAfter = Preferences.userNodeForPackage(OneInstanceTest.class).
             getInt(OneInstance.PORT_KEY, -1);
         assertEquals(port, portAfter);
-        
+
         // Unregister instance and check if port has been removed
         one.unregister(OneInstance.class);
         port = Preferences.userNodeForPackage(OneInstanceTest.class).
@@ -86,14 +85,22 @@ public class OneInstanceTest
         boolean firstResult = one.register(OneInstanceTest.class,
             new String[] { "arg1", "arg2" });
         assertTrue(firstResult);
-        
+
         // Install listener
         one.addListener(new OneInstanceListener()
         {
-            @Override 
-            public boolean newInstanceCreated(String[] args)
+            @Override
+            public boolean newInstanceCreated(File workingDir, String[] args)
             {
-                return args[0].equals("letMeIn");
+                try
+                {
+                    return args[0].equals("letMeIn") &&
+                        workingDir.equals(new File(".").getCanonicalFile());
+                }
+                catch (IOException e)
+                {
+                    return false;
+                }
             }
         });
 

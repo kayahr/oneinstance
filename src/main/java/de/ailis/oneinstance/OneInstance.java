@@ -6,11 +6,15 @@
 package de.ailis.oneinstance;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
+import java.io.RandomAccessFile;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -20,7 +24,6 @@ import java.util.prefs.Preferences;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 
 /**
  * The One-Instance manager. This is a singleton so you must use the
@@ -121,6 +124,61 @@ public final class OneInstance
     }
 
     /**
+     * Creates and returns the lock file for the specified class name.
+     * 
+     * @param className
+     *            The name of the main class.
+     * @return The lock file.
+     */
+    private File getLockFile(final String className)
+    {
+        return new File(System.getProperty("java.io.tmpdir"), 
+            "oneinstance-" + className + ".lock");
+    }
+
+    /**
+     * Locks the specified lock file.
+     * 
+     * @param lockFile
+     *            The lock file.
+     * @return The lock or null if no locking could be performed.
+     */
+    private FileLock lock(final File lockFile)
+    {
+        try
+        {
+            FileChannel channel =
+                new RandomAccessFile(lockFile, "rw").getChannel();
+            return channel.lock();
+        }
+        catch (IOException e)
+        {
+            LOG.warn("Unable to lock the lock file: " + e +
+                ". Trying to run without a lock.", e);
+            return null;
+        }
+    }
+
+    /**
+     * Releases the specified lock.
+     * 
+     * @param fileLock
+     *            The file lock to release. If null then nothing is done.
+     */
+    private void release(final FileLock fileLock)
+    {
+        if (fileLock == null) return;
+        try
+        {
+            fileLock.release();
+        }
+        catch (IOException e)
+        {
+            LOG.warn("Unable to release lock file: " + e, e);
+        }
+    }
+
+    /**
      * Registers this instance of the application. Returns true if the
      * application is allowed to run or false when the application must
      * exit immediately.
@@ -141,40 +199,56 @@ public final class OneInstance
         if (args == null)
             throw new IllegalArgumentException("args must be set");
 
+        // Determine application ID from class name.
+        String appId = mainClass.getName();
+
         try
         {
-            // Get the port which is currently recorded as active.
-            Integer port = getActivePort(mainClass);
-
-            // If port is found then we have to validate it
-            if (port != null)
-            {
-                // Determine application ID from class name.
-                String appId = mainClass.getName();
-
-                // Try to connect to the first instance.
-                Socket socket = openClientSocket(appId, port);
-
-                // If connection is successful then run as a client
-                // (non-first instance)
-                if (socket != null)
+            // Acquire a lock
+            File lockFile = getLockFile(appId);
+            FileLock lock = lock(lockFile);
+            
+            try
+            {                
+                // Get the port which is currently recorded as active.
+                Integer port = getActivePort(mainClass);
+    
+                // If port is found then we have to validate it
+                if (port != null)
                 {
-                    try
+                    // Try to connect to the first instance.
+                    Socket socket = openClientSocket(appId, port);
+    
+                    // If connection is successful then run as a client
+                    // (non-first instance)
+                    if (socket != null)
                     {
-                        // Run the client and return the result from the
-                        // server
-                        return runClient(socket, args);
-                    }
-                    finally
-                    {
-                        socket.close();
+                        try
+                        {
+                            // Run the client and return the result from the
+                            // server
+                            return runClient(socket, args);
+                        }
+                        finally
+                        {
+                            socket.close();
+                        }
                     }
                 }
+    
+                // Run the server 
+                runServer(mainClass);
+                
+                // Mark the lock file to be deleted when this instance exits.
+                lockFile.deleteOnExit();
+                
+                // Allow this first instance to run.
+                return true;
             }
-
-            // Run the server and allow this first instance to run.
-            runServer(mainClass);
-            return true;
+            finally
+            {
+                release(lock);
+            }
         }
         catch (IOException e)
         {
@@ -235,7 +309,7 @@ public final class OneInstance
      */
     private Integer getActivePort(Class<?> mainClass)
     {
-        Preferences prefs = Preferences.userNodeForPackage(mainClass);        
+        Preferences prefs = Preferences.userNodeForPackage(mainClass);
         int port = prefs.getInt(PORT_KEY, -1);
         return port >= MIN_PORT && port <= MAX_PORT ? port : null;
     }
@@ -260,7 +334,7 @@ public final class OneInstance
         {
             LOG.error(e.toString(), e);
         }
-        
+
     }
 
     /**
@@ -342,6 +416,7 @@ public final class OneInstance
         // Send serialized command-line argument list to the server.
         ObjectOutputStream out =
             new ObjectOutputStream(socket.getOutputStream());
+        out.writeObject(new File(".").getCanonicalFile());
         out.writeObject(args);
         out.flush();
 
@@ -386,16 +461,21 @@ public final class OneInstance
      * this method always returns false. If at least one listener accepts
      * the new instance then true is returned.
      * 
+     * @param workingDir
+     *            The current working directory of the client. Needed
+     *            if relative pathnames are specified on the command line
+     *            because the server may currently be in a different 
+     *            directory than the client.
      * @param args
      *            The command line arguments of the new instance.
      * @return True if the new instance is allowed to start, false if it must
      *         exit.
      */
-    boolean fireNewInstance(String[] args)
+    boolean fireNewInstance(final File workingDir, final String[] args)
     {
         boolean start = false;
         for (OneInstanceListener listener : this.listeners)
-            start |= listener.newInstanceCreated(args);
+            start |= listener.newInstanceCreated(workingDir, args);
         return start;
     }
 }

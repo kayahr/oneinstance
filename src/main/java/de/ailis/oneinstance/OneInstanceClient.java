@@ -5,6 +5,7 @@
 
 package de.ailis.oneinstance;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -24,7 +25,7 @@ final class OneInstanceClient implements Runnable
 {
     /** The logger. */
     private static final Log LOG = LogFactory.getLog(OneInstanceClient.class);
-    
+
     /** The application id. */
     private String appId;
 
@@ -61,14 +62,15 @@ final class OneInstanceClient implements Runnable
                 out.println(this.appId);
                 out.flush();
 
-                // Read the arguments
+                // Read the data from the client
                 InputStream in = this.socket.getInputStream();
-                String[] args =
-                    (String[]) new ObjectInputStream(in).readObject();
+                ObjectInputStream objIn = new ObjectInputStream(in);
+                File workingDir = (File) objIn.readObject();
+                String[] args = (String[]) objIn.readObject();
 
                 // Call event handler
                 boolean result =
-                    OneInstance.getInstance().fireNewInstance(args);
+                    OneInstance.getInstance().fireNewInstance(workingDir, args);
 
                 // Send the result
                 out.println(result ? "start" : "exit");

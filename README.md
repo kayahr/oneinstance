@@ -61,7 +61,7 @@ using Maven you can simply add it as a dependency:
       <dependency>   
         <groupId>de.ailis.oneinstance</groupId>
         <artifactId>oneinstance</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
       </dependency>
     </dependencies>
 
@@ -71,11 +71,26 @@ Usage
 
     public static void main(String[] args)
     {
-        if (!OneInstance.getInstance().register(Main.class, args))
-            System.exit(0);
+        OneInstance oneInstance = OneInstance.getInstance();
         
-        ... Continue with your application ...
+        // Install listener which processes the start of secondary instances
+        oneInstance.addListener(new OneInstanceListener()
+        {
+            public boolean newInstanceCreated(File workingDir, String[] args)
+            {
+                ... Process command line args of the other instance ...
+                ... workingDir can be used to resolve relative filenames ...
+                
+                // Tell the other instance to exit
+                return false;
+            }
+        });       
+    
+        // Exit the application if we are NOT the first instance and the
+        // real first instance decided that there can be only ONE instance.
+        if (!oneInstance.register(Main.class, args)) System.exit(0);
         
+        ... Continue with your application ...               
     }
 
 [1]: http://nexus.ailis.de/content/repositories/releases/de/ailis/oneinstance/oneinstance/ "Maven Repository"
